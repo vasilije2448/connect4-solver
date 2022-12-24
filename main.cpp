@@ -33,7 +33,7 @@ int NUM_ROWS = 6;
 int NUM_COLUMNS = 7;
 
 std::valarray<float> computeActionProbabilities(std::vector<int> scores) {
-  std::valarray<float> actionProbabilities(7);
+  std::valarray<float> actionProbabilities(NUM_COLUMNS);
   int maxScore = *max_element(scores.begin(), scores.end());
   for(int i = 0; i < (int)scores.size(); i++) {
     if(scores[i] == maxScore) {
@@ -137,17 +137,6 @@ int main() {
   float epsilon = 0.3; // % of random moves. This should be improved by better ways of exploration.
 
   std::vector<std::vector<int>> positionsVector;
-  // Action probabilities:
-  // For a given position, how good is each action (normalized such that values add up to 1).
-  // For example, if actions 1, 3 and 4 all lead to victory in the fewest number of moves, action probabilities
-  // would be: 0.33, 0, 0.33, 0.33, 0, 0, 0.
-  // For losing/drawing positions, actions are choosen such that loss/draw will happen in the greatest
-  // number of moves.
-  // 
-  // This might not be the best way to create action probabilities data. 
-  // If one action will lead to a victory in 10 moves and another in 11 moves, that's not such a big
-  // difference. It seems extreme to give a score of 1 to the best action and 0 to the slightly worse
-  // action.
   std::vector<std::valarray<float>> actionProbabilitiesVector;
   std::vector<int> winnersVector; // 0 for draw, 1 for p1, 2 for p2
   for(int episodeNum = 0; episodeNum < numEpisodes; episodeNum++) {
