@@ -13,7 +13,7 @@ make
 ./c4solver
 ```
 
-With numEpisodes = 100 000, it generates ~2.3 milion samples and takes ~400 MB of memory.
+With numEpisodes = 100 000, it generates ~2.3 million samples and takes ~400 MB of memory.
 
 ## Dataset
 
