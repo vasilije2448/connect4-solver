@@ -1,3 +1,4 @@
+
 /*
  * This file is part of Connect4 Game Solver <http://connect4.gamesolver.org>
  * Copyright (C) 2017-2019 Pascal Pons <contact@gamesolver.org>
@@ -25,6 +26,8 @@
 #include <valarray>
 #include <string>
 #include <random>
+#include <cmath>
+#include <climits>
 
 
 using namespace GameSolver::Connect4;
@@ -47,28 +50,28 @@ std::valarray<float> computeActionProbabilities(std::vector<int> scores) {
  return actionProbabilities;
 }
 
-int computeAction(std::vector<int> scores, std::valarray<float> actionProbabilities, float epsilon, std::mt19937& generator) {
+int computeAction(std::vector<int> scores, std::mt19937& generator) {
   int action;
   std::vector<int> actions{1, 2, 3, 4, 5, 6, 7};
-  std::uniform_real_distribution<> d1(0, 1);
-  float randomVal = d1(generator);
-  if(randomVal < epsilon) { // select random legal action
-    std::vector<float> randomActionProbs(NUM_COLUMNS);
-    for(int i = 0; i < (int)randomActionProbs.size(); i++) {
-      if(scores[i] == -1000) { // illegal action
-        randomActionProbs[i] = 0;
-      } else {
-        randomActionProbs[i] = 1;
-      }
+  std::valarray<float> actionProbabilities(NUM_COLUMNS);
+  int minLegalScore = INT_MAX;
+  for(int i = 0; i < NUM_COLUMNS; i++) {
+    if(scores[i] == -1000) { // illegal action
+      continue;
+    } else if(scores[i] < minLegalScore) {
+      minLegalScore = scores[i];
     }
-    // no need to normalize randomActionProbs, discrete_distribution does it
-    std::discrete_distribution<std::size_t> d2{std::begin(randomActionProbs), std::end(randomActionProbs)};
-    action = actions[d2(generator)];
-  } else { // select one of the best actions
-    std::discrete_distribution<std::size_t> d2{std::begin(actionProbabilities), std::end(actionProbabilities)};
-    action = actions[d2(generator)];
   }
 
+  for(int i = 0; i < NUM_COLUMNS; i++) {
+    if(scores[i] == -1000) { // illegal action
+      actionProbabilities[i] = 0;
+    } else {
+      actionProbabilities[i] = std::abs(minLegalScore) + scores[i] + 1; 
+    }
+  }
+  std::discrete_distribution<std::size_t> d{std::begin(actionProbabilities), std::end(actionProbabilities)};
+  action = actions[d(generator)];
   return action;
 }
 
@@ -134,7 +137,6 @@ int main() {
   solver.loadBook(opening_book);
 
   int action;
-  float epsilon = 0.3; // % of random moves. This should be improved by better ways of exploration.
 
   std::vector<std::vector<int>> positionsVector;
   std::vector<std::valarray<float>> actionProbabilitiesVector;
@@ -161,8 +163,9 @@ int main() {
       }
       winnersVector.push_back(winner);
 
+
       std::mt19937 gen(std::random_device{}());
-      action = computeAction(scores, actionProbabilities, epsilon, gen);
+      action = computeAction(scores, gen);
       currentPosition = modifyCurrentPosition(currentPosition, action, currentPlayerID);
       if(P.isWinningMove(action - 1) || P.nbMoves() == NUM_ROWS*NUM_COLUMNS-1) {
         gameOver = true;

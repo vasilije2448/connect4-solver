@@ -34,9 +34,11 @@ to bottom right. Values of the array are:
 
 For example, if actions 1, 3 and 4 all lead to victory in the fewest number of moves, action probabilities
 would be:
+
 ```
 0.33, 0, 0.33, 0.33, 0, 0, 0
 ```
+
 For losing/drawing positions, actions are choosen such that loss/draw will happen in the greatest number of moves.
 
 This might not be the best way to create action probabilities data. If one action leads to a victory in 10 moves 
@@ -45,9 +47,18 @@ the slightly worse action.
 
 ## Self play
 
-Data is generated through self play. 30% (epsilon) of the actions are selected randomly, other
-actions are selected greedily. This needs to be improved.
- 
+Data is generated through self play. Actions are selected based on their scores. If scores are:
+
+```
+-1000, -3, 2, 0, 0, 5, 5
+```
+
+Probability of selecting each action will be:
+
+```
+0.00, 0.03, 0.18, 0.12, 0.12, 0.27, 0.27
+```
+
 ---
 
 # Connect 4 Game Solver
