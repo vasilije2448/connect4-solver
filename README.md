@@ -3,7 +3,7 @@
 This fork of [Connect 4 Game Solver](https://github.com/PascalPons/connect4) is used to create a JSON dataset
 with perfect move scores and position evaluations.
 
-Besides adding rapidjson library, all my changes are in main.cpp file. If you want to modify this
+Besides adding rapidjson library, almost all my changes are in main.cpp file. If you want to modify this
 program, that's probably what you should be looking at.
 
 ## How to run
@@ -13,7 +13,9 @@ make
 ./c4solver
 ```
 
-With numEpisodes = 100 000, it generates ~2.3 million samples and takes ~400 MB of memory.
+With NUM_EPISODES = 100 000, it generates ~2.3 million samples and takes ~400 MB of memory.
+
+Inside main.cpp, change NUM_CPU if you want to run in parallel.
 
 ## Dataset
 

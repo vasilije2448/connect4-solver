@@ -28,12 +28,18 @@
 #include <random>
 #include <cmath>
 #include <climits>
+#include <omp.h>
+#include <chrono>
 
 
 using namespace GameSolver::Connect4;
 
-int NUM_ROWS = 6;
-int NUM_COLUMNS = 7;
+const int NUM_ROWS = 6;
+const int NUM_COLUMNS = 7;
+
+const int NUM_CPU = 1;
+const std::string DATASET_NAME = "dataset.json";
+const int NUM_EPISODES = 100000;
 
 std::valarray<float> computeActionProbabilities(std::vector<int> scores) {
   std::valarray<float> actionProbabilities(NUM_COLUMNS);
@@ -128,59 +134,95 @@ void saveDataset(std::vector<std::vector<int>>& positionsVector,
 }
 
 int main() {
-  Solver solver;
-  bool weak = false;
-  int numEpisodes = 100000;
-  std::string datasetName = "dataset.json";
-  std::string opening_book = "7x6.book";
 
-  solver.loadBook(opening_book);
+  std::vector<std::vector<std::vector<int>>> threadToPositionsVector(NUM_CPU);
+  std::vector<std::vector<std::valarray<float>>> threadToActionProbabilitiesVector(NUM_CPU);
+  std::vector<std::vector<int>> threadToWinnersVector(NUM_CPU);
+  omp_set_num_threads(NUM_CPU);
+  omp_set_dynamic(0);
+  std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+  #pragma omp parallel
+  {
+    Solver solver;
+    bool weak = false;
+    int numEpisodesPerCPU = std::floor(NUM_EPISODES / NUM_CPU);
+    std::string opening_book = "7x6.book";
+    solver.loadBook(opening_book);
+    int action;
 
-  int action;
+    std::vector<std::vector<int>> positionsVector;
+    std::vector<std::valarray<float>> actionProbabilitiesVector;
+    std::vector<int> winnersVector; // 0 for draw, 1 for p1, 2 for p2
+    for(int episodeNum = 0; episodeNum < numEpisodesPerCPU; episodeNum++) {
+      Position P;
+      int currentPlayerID = 1; // used only for dataset. Domain = {1, 2}
+      std::vector<int> currentPosition(6*7); // used only for dataset. Solver uses Position class.
+      bool gameOver = false;
+      while(!gameOver) {
+        std::vector<int> scores = solver.analyze(P, weak);
+        std::valarray<float> actionProbabilities = computeActionProbabilities(scores);
+        positionsVector.push_back(std::vector<int>(currentPosition)); // store _copy_ of the current position
+        actionProbabilitiesVector.push_back(actionProbabilities);
+        int maxScore = *max_element(scores.begin(), scores.end());
+        int winner;
+        if(maxScore == 0) { // draw
+          winner = 0;
+        } else if(maxScore > 0) {
+          winner = currentPlayerID;
+        } else {
+          winner = 3 - currentPlayerID;
+        }
+        winnersVector.push_back(winner);
 
+        std::mt19937 gen(std::random_device{}());
+        action = computeAction(scores, gen);
+        currentPosition = modifyCurrentPosition(currentPosition, action, currentPlayerID);
+        if(P.isWinningMove(action - 1) || P.nbMoves() == NUM_ROWS*NUM_COLUMNS-1) {
+          gameOver = true;
+        }
+
+        P.play(std::to_string(action));
+        currentPlayerID = 3 - currentPlayerID;
+      }
+    }
+    threadToPositionsVector[omp_get_thread_num()] = positionsVector;
+    threadToActionProbabilitiesVector[omp_get_thread_num()] = actionProbabilitiesVector;
+    threadToWinnersVector[omp_get_thread_num()] = winnersVector;
+  }
+
+  // Concat vectors from all threads
   std::vector<std::vector<int>> positionsVector;
   std::vector<std::valarray<float>> actionProbabilitiesVector;
-  std::vector<int> winnersVector; // 0 for draw, 1 for p1, 2 for p2
-  for(int episodeNum = 0; episodeNum < numEpisodes; episodeNum++) {
-    std::cout << "Episode number: " << episodeNum << " / " << numEpisodes << "\n";
-    Position P;
-    int currentPlayerID = 1; // used only for dataset. Domain = {1, 2}
-    std::vector<int> currentPosition(6*7); // used only for dataset. Solver uses Position class.
-    bool gameOver = false;
-    while(!gameOver) {
-      std::vector<int> scores = solver.analyze(P, weak);
-      std::valarray<float> actionProbabilities = computeActionProbabilities(scores);
-      positionsVector.push_back(std::vector<int>(currentPosition)); // store _copy_ of the current position
-      actionProbabilitiesVector.push_back(actionProbabilities);
-      int maxScore = *max_element(scores.begin(), scores.end());
-      int winner;
-      if(maxScore == 0) { // draw
-        winner = 0;
-      } else if(maxScore > 0) {
-        winner = currentPlayerID;
-      } else {
-        winner = 3 - currentPlayerID;
-      }
-      winnersVector.push_back(winner);
+  std::vector<int> winnersVector;
 
-
-      std::mt19937 gen(std::random_device{}());
-      action = computeAction(scores, gen);
-      currentPosition = modifyCurrentPosition(currentPosition, action, currentPlayerID);
-      if(P.isWinningMove(action - 1) || P.nbMoves() == NUM_ROWS*NUM_COLUMNS-1) {
-        gameOver = true;
-      }
-
-      P.play(std::to_string(action));
-      currentPlayerID = 3 - currentPlayerID;
-    }
+  for(int i = 0; i < NUM_CPU; i++) {
+    std::vector<std::vector<int>> pv = threadToPositionsVector[i];
+    positionsVector.insert(
+        positionsVector.end(),
+        std::make_move_iterator(pv.begin()),
+        std::make_move_iterator(pv.end())
+      );
+    std::vector<std::valarray<float>> apv = threadToActionProbabilitiesVector[i];
+    actionProbabilitiesVector.insert(
+        actionProbabilitiesVector.end(),
+        std::make_move_iterator(apv.begin()),
+        std::make_move_iterator(apv.end())
+      );
+    std::vector<int> wv = threadToWinnersVector[i];
+    winnersVector.insert(
+        winnersVector.end(),
+        std::make_move_iterator(wv.begin()),
+        std::make_move_iterator(wv.end())
+      );
   }
+
 
   std::cout << "Positions vector size: " << positionsVector.size() << "\n";
   std::cout << "Action probabilities vector size: " << actionProbabilitiesVector.size() << "\n";
   std::cout << "Winners vector size: " << winnersVector.size() << "\n";
   std::cout << "Saving dataset\n";
-  saveDataset(positionsVector, actionProbabilitiesVector, winnersVector, datasetName);
+  saveDataset(positionsVector, actionProbabilitiesVector, winnersVector, DATASET_NAME);
+
+  std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+  std::cout << "Execution time: " << std::chrono::duration_cast<std::chrono::seconds>(end - begin).count() << " [s]" << std::endl;
 }
-
-
