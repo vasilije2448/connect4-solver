@@ -21,31 +21,18 @@ Inside main.cpp, change NUM_CPU if you want to run in parallel.
 
 There are 3 data fields.
 
-**position** - array of size 42. On a 6x7 board, index 0 would be mapped to top left corner and index 41
+**position** - Array of size 42. On a 6x7 board, index 0 would be mapped to top left corner and index 41
 to bottom right. Values of the array are:
 - 1 for PLAYER_1
 - 2 for PLAYER_2
 - 0 if the square is empty.
 
-**winner** - with perfect play from both sides, who will win the game:
+**winner** - With perfect play from both sides, who will win the game:
 - 1 if PLAYER_1
 - 2 if PLAYER_2
 - 0 if draw
 
-**action_probabilities** - how good each action is, normalized such that values add up to 1.
-
-For example, if actions 1, 3 and 4 all lead to victory in the fewest number of moves, action probabilities
-would be:
-
-```
-0.33, 0, 0.33, 0.33, 0, 0, 0
-```
-
-For losing/drawing positions, actions are choosen such that loss/draw will happen in the greatest number of moves.
-
-This might not be the best way to create action probabilities data. If one action leads to a victory in 10 moves 
-and another in 11 moves, that's not such a big difference. It seems extreme to give a score of 1 to the best action and 0 to
-the slightly worse action.
+**scores** - Winning actions have a positive score and losing actions have a negative score. 0 is used for drawing actions. Absolute value of the score tells you how quickly the result will happen, assuming perfect play from both sides. Score of 1 means that the current player can end the game with his last action, 2 means with second last etc. -1000 is used for illegal actions.
 
 ## Self play
 

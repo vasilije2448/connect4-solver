@@ -41,21 +41,6 @@ const int NUM_CPU = 1;
 const std::string DATASET_NAME = "dataset.json";
 const int NUM_EPISODES = 100000;
 
-std::valarray<float> computeActionProbabilities(std::vector<int> scores) {
-  std::valarray<float> actionProbabilities(NUM_COLUMNS);
-  int maxScore = *max_element(scores.begin(), scores.end());
-  for(int i = 0; i < (int)scores.size(); i++) {
-    if(scores[i] == maxScore) {
-      actionProbabilities[i] = 1;
-    } else {
-      actionProbabilities[i] = 0;
-    }
-  }
-  actionProbabilities /= actionProbabilities.sum();
-
- return actionProbabilities;
-}
-
 int computeAction(std::vector<int> scores, std::mt19937& generator) {
   int action;
   std::vector<int> actions{1, 2, 3, 4, 5, 6, 7};
@@ -104,7 +89,7 @@ std::vector<int> modifyCurrentPosition(std::vector<int>& currentPosition, int ac
 }
 
 void saveDataset(std::vector<std::vector<int>>& positionsVector,
-    std::vector<std::valarray<float>>& actionProbabilitiesVector,
+    std::vector<std::vector<int>>& scoresVector,
     std::vector<int>& winnersVector,
     std::string datasetName) {
   rapidjson::StringBuffer stringBuffer;
@@ -120,10 +105,10 @@ void saveDataset(std::vector<std::vector<int>>& positionsVector,
     writer.EndArray();
     writer.Key("winner");
     writer.Uint(winnersVector[i]);
-    writer.Key("action_probabilities");
+    writer.Key("scores");
     writer.StartArray();
     for(int j = 0; j < NUM_COLUMNS; j++) {
-      writer.Double(actionProbabilitiesVector[i][j]);
+      writer.Int(scoresVector[i][j]);
     }
     writer.EndArray();
     writer.EndObject();
@@ -136,7 +121,7 @@ void saveDataset(std::vector<std::vector<int>>& positionsVector,
 int main() {
 
   std::vector<std::vector<std::vector<int>>> threadToPositionsVector(NUM_CPU);
-  std::vector<std::vector<std::valarray<float>>> threadToActionProbabilitiesVector(NUM_CPU);
+  std::vector<std::vector<std::vector<int>>> threadToScoresVector(NUM_CPU);
   std::vector<std::vector<int>> threadToWinnersVector(NUM_CPU);
   omp_set_num_threads(NUM_CPU);
   omp_set_dynamic(0);
@@ -151,7 +136,7 @@ int main() {
     int action;
 
     std::vector<std::vector<int>> positionsVector;
-    std::vector<std::valarray<float>> actionProbabilitiesVector;
+    std::vector<std::vector<int>> scoresVector;
     std::vector<int> winnersVector; // 0 for draw, 1 for p1, 2 for p2
     for(int episodeNum = 0; episodeNum < numEpisodesPerCPU; episodeNum++) {
       Position P;
@@ -160,9 +145,8 @@ int main() {
       bool gameOver = false;
       while(!gameOver) {
         std::vector<int> scores = solver.analyze(P, weak);
-        std::valarray<float> actionProbabilities = computeActionProbabilities(scores);
         positionsVector.push_back(std::vector<int>(currentPosition)); // store _copy_ of the current position
-        actionProbabilitiesVector.push_back(actionProbabilities);
+        scoresVector.push_back(scores);
         int maxScore = *max_element(scores.begin(), scores.end());
         int winner;
         if(maxScore == 0) { // draw
@@ -186,13 +170,13 @@ int main() {
       }
     }
     threadToPositionsVector[omp_get_thread_num()] = positionsVector;
-    threadToActionProbabilitiesVector[omp_get_thread_num()] = actionProbabilitiesVector;
+    threadToScoresVector[omp_get_thread_num()] = scoresVector;
     threadToWinnersVector[omp_get_thread_num()] = winnersVector;
   }
 
   // Concat vectors from all threads
   std::vector<std::vector<int>> positionsVector;
-  std::vector<std::valarray<float>> actionProbabilitiesVector;
+  std::vector<std::vector<int>> scoresVector;
   std::vector<int> winnersVector;
 
   for(int i = 0; i < NUM_CPU; i++) {
@@ -202,11 +186,11 @@ int main() {
         std::make_move_iterator(pv.begin()),
         std::make_move_iterator(pv.end())
       );
-    std::vector<std::valarray<float>> apv = threadToActionProbabilitiesVector[i];
-    actionProbabilitiesVector.insert(
-        actionProbabilitiesVector.end(),
-        std::make_move_iterator(apv.begin()),
-        std::make_move_iterator(apv.end())
+    std::vector<std::vector<int>> sv = threadToScoresVector[i];
+    scoresVector.insert(
+        scoresVector.end(),
+        std::make_move_iterator(sv.begin()),
+        std::make_move_iterator(sv.end())
       );
     std::vector<int> wv = threadToWinnersVector[i];
     winnersVector.insert(
@@ -216,12 +200,11 @@ int main() {
       );
   }
 
-
   std::cout << "Positions vector size: " << positionsVector.size() << "\n";
-  std::cout << "Action probabilities vector size: " << actionProbabilitiesVector.size() << "\n";
+  std::cout << "Scores vector size: " << scoresVector.size() << "\n";
   std::cout << "Winners vector size: " << winnersVector.size() << "\n";
   std::cout << "Saving dataset\n";
-  saveDataset(positionsVector, actionProbabilitiesVector, winnersVector, DATASET_NAME);
+  saveDataset(positionsVector, scoresVector, winnersVector, DATASET_NAME);
 
   std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
   std::cout << "Execution time: " << std::chrono::duration_cast<std::chrono::seconds>(end - begin).count() << " [s]" << std::endl;
