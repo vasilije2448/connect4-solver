@@ -1,0 +1,13 @@
+cmake_minimum_required(VERSION 3.9...3.18)
+project(c4pys)
+add_subdirectory(pybind11)
+set (PYTHONVERSION "3.7.9")
+set (PYBIND11_PYTHON_VERSION "3.7.9")
+pybind11_add_module(connect4_solver py_wrapper.cpp)
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(connect4_solver PUBLIC OpenMP::OpenMP_CXX)
+endif()
+
+add_library(solver_lib SHARED Solver.cpp Solver.hpp)
+target_link_libraries(connect4_solver PUBLIC solver_lib)

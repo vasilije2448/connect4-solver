@@ -29,3 +29,6 @@
 
 # vim swap file
 *.swp
+
+# python wrapper build
+python_build/*

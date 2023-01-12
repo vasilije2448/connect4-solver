@@ -243,11 +243,23 @@ class Position {
     return winning_position() & possible() & column_mask(col);
   }
 
+  void setCurrentPosition(position_t value) {
+    current_position = value; 
+  }
+
+  void setMask(position_t value) {
+    mask = value; 
+  }
+
+  void setMoves(unsigned int value) {
+    moves = value; 
+  }
+
+
  private:
   position_t current_position; // bitmap of the current_player stones
   position_t mask;             // bitmap of all the already palyed spots
   unsigned int moves;        // number of moves played since the beinning of the game.
-
   /**
     * Compute a partial base 3 key for a given column
     */

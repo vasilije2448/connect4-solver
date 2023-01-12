@@ -126,7 +126,12 @@ int Solver::solve(const Position &P, bool weak) {
 }
 
 std::vector<int> Solver::analyze(const Position &P, bool weak) {
-  std::vector<int> scores(Position::WIDTH, Solver::INVALID_MOVE);
+  // TODO:
+  // This causes ImportError with cmake and pybind11:
+  // undefined symbol: _ZN10GameSolver8Connect46Solver12INVALID_MOVEE
+  // idk why, there's probably a way to fix this in CMakeLists.txt
+  //std::vector<int> scores(Position::WIDTH, Solver::INVALID_MOVE);
+  std::vector<int> scores(Position::WIDTH, -1000);
   for (int col = 0; col < Position::WIDTH; col++)
     if (P.canPlay(col)) {
       if(P.isWinningMove(col)) scores[col] = (Position::WIDTH * Position::HEIGHT + 1 - P.nbMoves()) / 2;
