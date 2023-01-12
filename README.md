@@ -57,6 +57,14 @@ Probability of selecting each action will be:
 
 ### How to run
 
+After cloning the repository, inside pybind11 run:
+
+```
+git submodule update --init
+```
+
+Then, from connect4-solver (project root):
+
 ```
 cmake -S . -B python_build
 cmake --build python_build
